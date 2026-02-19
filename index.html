@@ -23,27 +23,35 @@ maxZoom: 19
 }).addTo(map);
 
 fetch('data.json')
-.then(response => response.json())
-.then(data => {
-data.forEach(function(obj) {
+  .then(response => response.json())
+  .then(data => {
+    var markers = [];
+    data.forEach(function(obj) {
+      // защита: если координат нет - пропускаем
+      if (typeof obj.lat !== 'number' || typeof obj.lng !== 'number') return;
 
-var marker = L.marker([obj.lat, obj.lng]).addTo(map);
+      var marker = L.marker([obj.lat, obj.lng]).addTo(map);
 
-marker.bindTooltip(obj.title + " • " + obj.work_type);
+      marker.bindTooltip((obj.title || "") + " • " + (obj.work_type || ""), {sticky:true});
 
-marker.bindPopup(
-"<b>" + obj.title + "</b><br>" +
-obj.address + "<br><br>" +
-"<b>Что сделано:</b><br>" +
-obj.done + "<br><br>" +
-"<b>Цена:</b> " +
-obj.price_total + " ₽<br>" +
-obj.price_note
-);
+      marker.bindPopup(
+        "<b>" + (obj.title || "") + "</b><br>" +
+        (obj.address || "") + "<br><br>" +
+        "<b>Что сделано:</b><br>" +
+        (obj.done || "") + "<br><br>" +
+        "<b>Цена:</b> " +
+        ((obj.price_total || "") + " ₽") + "<br>" +
+        (obj.price_note || "")
+      );
 
-});
-});
-</script>
+      markers.push(marker);
+    });
 
-</body>
-</html>
+    // Авто-масштаб: показать все точки
+    if (markers.length > 0) {
+      var group = L.featureGroup(markers);
+      map.fitBounds(group.getBounds().pad(0.2));
+    } else {
+      alert("Нет точек с корректными координатами.");
+    }
+  });
