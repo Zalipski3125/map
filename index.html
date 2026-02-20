@@ -1,32 +1,81 @@
-<!doctype html>
-<html lang="ru">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Карта объектов</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>html,body{height:100%;margin:0}#map{height:100%}</style>
+<meta charset="utf-8" />
+<title>Карта объектов</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  html, body { height: 100%; margin: 0; }
+  #map { height: 100%; }
+</style>
 </head>
 <body>
-  <div id="map"></div>
-  <script>
-    const map = L.map('map').setView([60.242267, 29.634379], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+<div id="map"></div>
 
-    // Тестовый маркер (чтобы точно видеть точку)
-    L.marker([60.242267, 29.634379]).addTo(map).bindPopup("Тест: маркер работает").openPopup();
+<script>
+  var map = L.map('map').setView([60.0, 30.0], 7);
 
-    // Загрузка data.json
-    fetch('./data.json', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(data => {
-        data.forEach(o => {
-          if (typeof o.lat !== 'number' || typeof o.lng !== 'number') return;
-          L.marker([o.lat, o.lng]).addTo(map).bindPopup((o.title || '') + "<br>" + (o.address || ''));
-        });
-      })
-      .catch(err => console.log(err));
-  </script>
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19
+  }).addTo(map);
+
+  fetch('./data.json', { cache: 'no-store' })
+    .then(r => {
+      if (!r.ok) throw new Error('Не загрузился data.json: ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      var bounds = [];
+
+      data.forEach(obj => {
+        // Превращаем координаты в числа
+        var lat = Number(obj.lat);
+        var lng = Number(obj.lng);
+
+        // Пропускаем битые/пустые координаты
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) return;
+
+        var marker = L.marker([lat, lng]).addTo(map);
+
+        var tip = (obj.title ? obj.title : 'Объект') + (obj.work_type ? (' • ' + obj.work_type) : '');
+        marker.bindTooltip(tip, { direction: 'top', sticky: true, opacity: 0.95 });
+
+        var done = obj.done ? obj.done : '';
+        var address = obj.address ? obj.address : '';
+        var price = (obj.price_total !== undefined && obj.price_total !== null && obj.price_total !== '')
+          ? (Number(obj.price_total).toLocaleString('ru-RU') + ' ₽')
+          : '';
+        var note = obj.price_note ? obj.price_note : '';
+        var album = obj.album_url ? obj.album_url : '';
+        var card = obj.card_url ? obj.card_url : '';
+
+        var popup = ''
+          + '<b>' + (obj.title ? obj.title : 'Объект') + '</b><br>'
+          + (address ? (address + '<br><br>') : '')
+          + (done ? ('<b>Что сделано:</b><br>' + done + '<br><br>') : '')
+          + ((price || note) ? ('<b>Цена:</b> ' + price + (note ? (' (' + note + ')') : '') + '<br><br>') : '')
+          + (album ? ('<a href="' + album + '" target="_blank" rel="noopener">Открыть альбом</a><br>') : '')
+          + (card ? ('<a href="' + card + '" target="_blank" rel="noopener">Открыть карточку</a>') : '');
+
+        marker.bindPopup(popup, { maxWidth: 420 });
+
+        bounds.push([lat, lng]);
+      });
+
+      // Если нашли хотя бы одну точку — приближаем к ним
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [30, 30] });
+      } else {
+        alert('Точек с корректными координатами не найдено. Проверь lat/lng в data.json');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Ошибка на карте: ' + err.message);
+    });
+</script>
+
 </body>
 </html>
